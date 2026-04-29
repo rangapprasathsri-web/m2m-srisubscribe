@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTT Final Subscriber</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --accent: #38bdf8;
+            --success: #22c55e;
+            --text: #f8fafc;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text);
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+
+        .container {
+            width: 400px;
+            background: var(--card);
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            background: #64748b;
+        }
+        .online .status-dot { background: var(--success); box-shadow: 0 0 10px var(--success); }
+
+        .header h1 { margin: 10px 0; font-size: 24px; }
+        .header p { color: #94a3b8; font-size: 14px; margin-bottom: 30px; }
+
+        .input-box {
+            background: #334155;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid #475569;
+            color: white;
+            width: 100%;
+            padding: 8px;
+            font-size: 16px;
+            outline: none;
+            text-align: center;
+        }
+        input:focus { border-color: var(--accent); }
+
+        .btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            width: 100%;
+            transition: 0.3s;
+        }
+        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn.active { background: #ef4444; color: white; }
+
+        .display-area {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid #334155;
+        }
+
+        #topic-label { font-size: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+        #payload { font-size: 32px; font-weight: bold; margin: 15px 0; word-wrap: break-word; }
+        #time { font-size: 12px; color: #64748b; }
+
+        /* Animation for new message */
+        @keyframes flash {
+            0% { background: rgba(56, 189, 248, 0.2); }
+            100% { background: transparent; }
+        }
+        .pulse { animation: flash 0.5s ease-out; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="app-container">
+    <div class="header">
+        <div id="status-row"><span class="status-dot"></span><span id="status-text">Disconnected</span></div>
+        <h1>Live Monitor</h1>
+        <p>Listening to HiveMQ Public Broker</p>
+    </div>
+
+    <div class="input-box">
+        <input type="text" id="topicInput" value="testtopic/1" placeholder="Enter Topic">
+    </div>
+
+    <button class="btn" id="mainBtn" onclick="toggle()">Connect & Subscribe</button>
+
+    <div class="display-area" id="display">
+        <div id="topic-label">Waiting for data...</div>
+        <div id="payload">--</div>
+        <div id="time">Last Update: None</div>
+    </div>
+</div>
+
+<script>
+    let client = null;
+    const mainBtn = document.getElementById('mainBtn');
+    const container = document.getElementById('app-container');
+
+    function toggle() {
+        if (client && client.connected) {
+            client.end();
+            return;
+        }
+
+        const topic = document.getElementById('topicInput').value;
+        if (!topic) return alert("Enter a topic!");
+
+        // Using Port 8884 and WSS for maximum browser compatibility
+        client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+            keepalive: 60,
+            clientId: 'web_sub_' + Math.random().toString(16).substring(2, 10)
+        });
+
+        client.on('connect', () => {
+            container.classList.add('online');
+            document.getElementById('status-text').textContent = "Connected Securely";
+            mainBtn.textContent = "Disconnect";
+            mainBtn.classList.add('active');
+            client.subscribe(topic);
+        });
+
+        client.on('message', (t, p) => {
+            document.getElementById('topic-label').textContent = "Topic: " + t;
+            document.getElementById('payload').textContent = p.toString();
+            document.getElementById('time').textContent = "Received at: " + new Date().toLocaleTimeString();
+            
+            // Visual pulse effect
+            const display = document.getElementById('display');
+            display.classList.remove('pulse');
+            void display.offsetWidth; 
+            display.classList.add('pulse');
+        });
+
+        client.on('close', () => {
+            container.classList.remove('online');
+            document.getElementById('status-text').textContent = "Disconnected";
+            mainBtn.textContent = "Connect & Subscribe";
+            mainBtn.classList.remove('active');
+        });
+    }
+</script>
+
+</body>
+</html>
